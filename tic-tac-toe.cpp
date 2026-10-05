@@ -1,9 +1,18 @@
 #include <cstdio>
+#include <vector>
+
+struct Cell
+{
+    int x;
+    int y;
+};
+
 
 class TicTacToe
 {
 private:
     char board[3][3];
+    Cell bestMove;
 
     void init();
     bool checkWin(char player);
@@ -15,7 +24,8 @@ public:
     ~TicTacToe();
     void print();
     void userMove();
-    void computerMove(char board[][3], char player = '0');
+    int minimax(char player, int depth);
+    void computerMove();
 };
 
 TicTacToe::TicTacToe()
@@ -30,7 +40,11 @@ void TicTacToe::init()
     {
         for (size_t j = 0; j < 3; j++)
         {
-            board[i][j] = ' ';
+            if (i == 0 && j == 0) {
+                board[i][j] = '0';    
+            } else {
+                board[i][j] = ' ';
+            }
         }
     }
 }
@@ -79,19 +93,87 @@ bool TicTacToe::checkWin(char player)
         board[1][1] == player &&
         board[2][0] == player)
     {
+        printf("%c - win", player);
         return true;
     }
     return false;
 }
 
-void TicTacToe::computerMove(char board[][3], char player = 'x')
+int TicTacToe::minimax(char player = 'x', int depth = 0)
 {
+    printf("%d\n", depth);
+    std::vector<int> scores;
+    std::vector<Cell> moves;
+
+    // Проверяем что на очередном ходу кто-то побеждает
     if (checkWin(player))
     {
-        over = true;
-        return;
+        return player == 'x' ? depth - 10 : 10 - depth;
+    }
+
+    // Определяем пустые клетки
+    std::vector<Cell> emptyCeils;
+    for (int i = 0; i < 3; i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            if (board[i][j] == ' ')
+            {
+                emptyCeils.push_back(Cell {j, i});
+            }
+        }       
+    }
+
+    // Если ничья
+    if (emptyCeils.empty())
+    {
+        return 0;
+    }
+
+    // Делаем последовательно ходы во все пустые подряд
+    for (auto cell: emptyCeils)
+    {
+        char nextPlayer = player == 'x' ? '0' : 'x';
+        board[cell.y][cell.x] = nextPlayer;
+        scores.push_back(minimax(nextPlayer, depth + 1));
+        moves.push_back(cell);
+        board[cell.y][cell.x] = ' ';
     }
     
+    // Вычисляем наилучший ход
+    if (player == 'x')
+    {
+        int min = 10;
+        int index = 0;
+        int counter = 0;
+        for (auto score: scores)
+        {
+            if (score < min)
+            {
+                min = score;
+                index = counter;
+            }
+            counter++;
+        }
+        bestMove = moves[index];
+        return scores[index];
+    } else 
+    {
+        int max = -10;
+        int index = 0;
+        int counter = 0;
+        for (auto score: scores)
+        {
+            if (score > max)
+            {
+                max = score;
+                index = counter;
+            }
+            counter++;
+        }
+        bestMove = moves[index];
+        return scores[index];
+    }
 }
 
 // Игрок вводит номер ячейки 0-8
@@ -107,6 +189,12 @@ void TicTacToe::userMove()
     board[y][x] = 'x';
 }
 
+void TicTacToe::computerMove()
+{
+    board[bestMove.x][bestMove.y] = '0';
+}
+
+
 int main()
 {
     TicTacToe game;
@@ -115,6 +203,8 @@ int main()
     {
         game.print();
         game.userMove();
+        game.minimax();
+        game.computerMove();
     }
     return 0;
 }
