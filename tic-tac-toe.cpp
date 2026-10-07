@@ -1,30 +1,33 @@
 #include <cstdio>
 #include <vector>
+#include <cstdlib>
 
 struct Cell
 {
     int x;
     int y;
+    int score;
 };
-
 
 class TicTacToe
 {
 private:
     char board[3][3];
-    Cell bestMove;
 
     void init();
+    Cell checkMin(std::vector<Cell> &cells);
+    Cell checkMax(std::vector<Cell> &cells);
     bool checkWin(char player);
+    std::vector<Cell> getEmptyCells();
 
 public:
     bool over = false;
+    char winner = ' ';
 
     TicTacToe();
-    ~TicTacToe();
     void print();
     void userMove();
-    int minimax(char player, int depth);
+    Cell minimax(char player, int depth);
     void computerMove();
 };
 
@@ -32,7 +35,6 @@ TicTacToe::TicTacToe()
 {
     init();
 }
-TicTacToe::~TicTacToe() {};
 
 void TicTacToe::init()
 {
@@ -40,11 +42,7 @@ void TicTacToe::init()
     {
         for (size_t j = 0; j < 3; j++)
         {
-            if (i == 0 && j == 0) {
-                board[i][j] = '0';    
-            } else {
-                board[i][j] = ' ';
-            }
+            board[i][j] = ' ';
         }
     }
 }
@@ -93,87 +91,75 @@ bool TicTacToe::checkWin(char player)
         board[1][1] == player &&
         board[2][0] == player)
     {
-        printf("%c - win", player);
         return true;
     }
     return false;
 }
 
-int TicTacToe::minimax(char player = 'x', int depth = 0)
+Cell TicTacToe::checkMin(std::vector<Cell> &cells)
 {
-    printf("%d\n", depth);
-    std::vector<int> scores;
-    std::vector<Cell> moves;
-
-    // Проверяем что на очередном ходу кто-то побеждает
-    if (checkWin(player))
+    int minValue = 10;
+    Cell bestMove;
+    for (auto cell: cells)
     {
-        return player == 'x' ? depth - 10 : 10 - depth;
+        if (cell.score < minValue)
+        {
+            minValue = cell.score;
+            bestMove = cell;
+        }
     }
+    return bestMove;
+}
 
-    // Определяем пустые клетки
+Cell TicTacToe::checkMax(std::vector<Cell> &cells)
+{
+    int maxValue = -10;
+    Cell bestMove;
+    for (auto cell: cells)
+    {
+        if (cell.score > maxValue)
+        {
+            maxValue = cell.score;
+            bestMove = cell;
+        }
+    }
+    return bestMove;
+}
+
+std::vector<Cell> TicTacToe::getEmptyCells()
+{
     std::vector<Cell> emptyCeils;
     for (int i = 0; i < 3; i++)
-    {
         for (int j = 0; j < 3; j++)
-        {
             if (board[i][j] == ' ')
-            {
-                emptyCeils.push_back(Cell {j, i});
-            }
-        }       
-    }
+                emptyCeils.push_back(Cell{j, i, 0});
+    return emptyCeils;
+}
+
+Cell TicTacToe::minimax(char player = 'x', int depth = 0)
+{
+    // Проверяем что на очередном ходу кто-то побеждает
+    if (checkWin(player))
+        return player == 'x' ? Cell{-1 , -1, 10 - depth} : Cell{-1, -1, depth - 10};
+
+    // Определяем пустые клетки
+    std::vector<Cell> cells = getEmptyCells();
 
     // Если ничья
-    if (emptyCeils.empty())
-    {
-        return 0;
-    }
+    if (cells.empty())
+        return Cell{-1, -1, 0};
 
     // Делаем последовательно ходы во все пустые подряд
-    for (auto cell: emptyCeils)
+    for (auto &cell : cells)
     {
         char nextPlayer = player == 'x' ? '0' : 'x';
         board[cell.y][cell.x] = nextPlayer;
-        scores.push_back(minimax(nextPlayer, depth + 1));
-        moves.push_back(cell);
+        cell.score = minimax(nextPlayer, depth + 1).score;
         board[cell.y][cell.x] = ' ';
     }
-    
+
     // Вычисляем наилучший ход
-    if (player == 'x')
-    {
-        int min = 10;
-        int index = 0;
-        int counter = 0;
-        for (auto score: scores)
-        {
-            if (score < min)
-            {
-                min = score;
-                index = counter;
-            }
-            counter++;
-        }
-        bestMove = moves[index];
-        return scores[index];
-    } else 
-    {
-        int max = -10;
-        int index = 0;
-        int counter = 0;
-        for (auto score: scores)
-        {
-            if (score > max)
-            {
-                max = score;
-                index = counter;
-            }
-            counter++;
-        }
-        bestMove = moves[index];
-        return scores[index];
-    }
+    return player == 'x' ? checkMin(cells) : checkMax(cells);
 }
 
 // Игрок вводит номер ячейки 0-8
@@ -182,18 +168,51 @@ int TicTacToe::minimax(char player = 'x', int depth = 0)
 // 6 | 7 | 8
 void TicTacToe::userMove()
 {
-    int cell;
-    std::scanf("%d", &cell);
-    int x = cell % 3;
-    int y = cell / 3;
-    board[y][x] = 'x';
+    long cell;
+    char *p, s[100];
+    while (fgets(s, sizeof(s), stdin))
+    {
+        cell = strtol(s, &p, 10); // s = h e l l o \n \0
+
+        if (p == s || *p != '\n' || cell < 0 || cell > 8)
+        {
+            printf("Wrong input\n");
+        }
+        int x = cell % 3;
+        int y = cell / 3;
+        if (board[y][x] == ' ')
+        {
+            board[y][x] = 'x';
+            break;
+        }
+        printf("Wrong input\n");
+    }
+    if (checkWin('x'))
+    {
+        over = true;
+        winner = 'x';
+    }
+    else if (getEmptyCells().empty())
+    {
+        over = true;
+    }
 }
 
 void TicTacToe::computerMove()
 {
-    board[bestMove.x][bestMove.y] = '0';
+    Cell bestMove = minimax();
+    printf("%d %d %d\n", bestMove.x, bestMove.y, bestMove.score);
+    board[bestMove.y][bestMove.x] = '0';
+    if (checkWin('0'))
+    {
+        over = true;
+        winner = '0';
+    }
+    else if (getEmptyCells().empty())
+    {
+        over = true;
+    }
 }
-
 
 int main()
 {
@@ -203,8 +222,16 @@ int main()
     {
         game.print();
         game.userMove();
-        game.minimax();
         game.computerMove();
     }
+    if (game.winner != ' ')
+    {
+        printf("Game over! Winner is %c\n", game.winner);
+    }
+    else
+    {
+        printf("Game over! It is draw!\n");
+    }
+
     return 0;
 }
